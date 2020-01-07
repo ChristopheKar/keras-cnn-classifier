@@ -4,8 +4,9 @@ import math
 import time
 from shutil import copyfile
 
-# Import main library
+# Import main libraries
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
@@ -44,7 +45,7 @@ from tensorflow.keras.applications.densenet import DenseNet121, DenseNet169
 
 class ClassifierCNN:
 
-    def __init__(self, backbone, experiment_name):
+    def __init__(self, backbone, experiment_name, dataset=None, class_mode='binary'):
 
         # Clear session variables
         if K.backend() == 'tensorflow':
@@ -52,13 +53,13 @@ class ClassifierCNN:
 
         # Set up root paths
         self.models_root_path = 'models'
-        self.data_root_path = 'datasets'
+        self.data_root = 'datasets'
         self.logs_root_path = 'logs'
         # Set up model path
-        self.model_name = model_name + '.h5'
+        self.model_name = experiment_name + '.h5'
         self.model_path = os.path.join(self.models_root_path, self.model_name)
         # Set up log path
-        self.logs_name = model_name
+        self.logs_name = experiment_name
         self.logs_path = os.path.join(self.logs_root_path, self.logs_name)
         # Set up model backbone
         self.backbone = backbone
@@ -90,28 +91,32 @@ class ClassifierCNN:
         if not os.path.exists(self.metrics_path):
             os.makedirs(self.metrics_path)
 
+        # Set up dataset with default paths
+        if dataset is not None:
+            self.setup_dataset(class_mode, dataset)
 
-    def setup_dataset(num_classes, dataset_path, train_path='train', valid_path='valid', mode='directory', use_default_root=True, x_col=None, y_col=None):
+
+    def setup_dataset(self, class_mode, dataset_path, train_path='train', valid_path='valid', mode='directory', use_default_root=True, x_col=None, y_col=None):
 
         flag_path = 0
 
         if mode == 'directory':
             # Set dataset paths
             if use_default_root is True:
-                self.dataset_root = (self.data_root_path, dataset_path)
+                self.dataset_root = os.path.join(self.data_root, dataset_path)
                 self.train_path = os.path.join(self.dataset_root, train_path)
                 self.valid_path = os.path.join(self.dataset_root, valid_path)
             else:
                 self.train_path = train_path
                 self.valid_path = valid_path
             # Check for validity of dataset paths
-            flag_path += os.path.isdir(self.train_path)
-            flag_path += os.path.isdir(self.valid_path)
+            flag_path += not(os.path.isdir(self.train_path))
+            flag_path += not(os.path.isdir(self.valid_path))
 
         elif mode == 'dataframe':
             # Set dataset paths
             if use_default_root is True:
-                self.dataset_root = (self.data_root_path, dataset_path)
+                self.dataset_root = os.path.join(self.data_root, dataset_path)
                 self.train_path = os.path.join(self.dataset_root, train_path)
                 self.valid_path = os.path.join(self.dataset_root, valid_path)
             else:
@@ -122,33 +127,30 @@ class ClassifierCNN:
             self.xcol_name = x_col
             self.ycol_name = y_col
             # Check for validity of dataset paths
-            flag_path += os.path.isfile(self.train_path)
-            flag_path += os.path.isfile(self.valid_path)
+            flag_path += not(os.path.isfile(self.train_path))
+            flag_path += not(os.path.isfile(self.valid_path))
 
         assert (flag_path == 0), "Dataset path error"
 
-        self.set_num_classes(num_classes)
+        self.dataset_mode = mode
+        self.set_class_mode(class_mode)
 
 
-    def set_num_classes(self, num_classes):
+    def set_class_mode(self, class_mode):
 
-        # Set class variable num_classes
-        self.num_classes = num_classes
-
+        self.class_mode = class_mode
         # Set training loss and activation functions
-        if self.num_classes == 1:                   # Binary classification
-            self.class_mode = 'binary'
+        if self.class_mode == 'binary':             # Binary classification
             self.activation = 'sigmoid'
             self.loss = 'binary_crossentropy'
-        elif self.num_classes > 1:                  # Multi-class classification
-            self.class_mode = 'categorical'
+        elif self.class_mode == 'categorical':      # Multi-class classification
             self.activation = 'softmax'
             self.loss = 'categorical_crossentropy'
 
     def load_dataset_generators(self):
 
         # Create training generator and augment training data
-        if self.agument_data is True:
+        if self.augment_data is True:
             train_datagen = ImageDataGenerator(
                 rescale=1./255,
                 rotation_range=90,
@@ -162,8 +164,7 @@ class ClassifierCNN:
             train_datagen = ImageDataGenerator(rescale=1./255)
 
         # Don't augment data in the validation generator
-        validation_datagen = ImageDataGenerator(
-            rescale=1./255)
+        validation_datagen = ImageDataGenerator(rescale=1./255)
 
         if self.dataset_mode == 'directory':
             # Training generator
@@ -183,7 +184,7 @@ class ClassifierCNN:
         elif self.dataset_mode == 'dataframe':
             # Training generator
             self.train_generator = train_datagen.flow_from_dataframe(
-                dataframe = self.train_path,
+                dataframe = pd.read_csv(self.train_path).astype('str'),
                 directory = self.dataset_root,
                 x_col = self.xcol_name,
                 y_col = self.ycol_name,
@@ -193,7 +194,7 @@ class ClassifierCNN:
                 shuffle = True)
             # Validation generator
             self.validation_generator = validation_datagen.flow_from_dataframe(
-                dataframe = self.valid_path,
+                dataframe = pd.read_csv(self.valid_path).astype('str'),
                 directory = self.dataset_root,
                 x_col = self.xcol_name,
                 y_col = self.ycol_name,
@@ -204,6 +205,8 @@ class ClassifierCNN:
             # Set number of samples
             self.num_train_samples = self.train_generator.samples
             self.num_valid_samples = self.validation_generator.samples
+
+        assert len(self.validation_generator.class_indices) == len(self.train_generator.class_indices), "number of classes in training and validation sets do not match"
 
 
         if self.class_weights == 'balanced':
@@ -360,13 +363,6 @@ class ClassifierCNN:
                            metrics=['accuracy'])
 
     def fit_model(self, steps='warmup'):
-
-                self.earlystopping = False
-                self.earlystop_patience = 10
-                self.log_to_tensorboard = False
-                self.log_to_csv = True
-                self.use_lr_decay = False
-                self.use_lr_plateau = True
 
         callbacks = []
         lr_callback = []
