@@ -445,7 +445,9 @@ class ClassifierCNN:
 
     def train(self):
 
-        # creating model
+        self.load_dataset_generators()
+
+        # Creating model
         if isinstance(self.backbone, str):
             model_path = os.path.join(self.models_root, self.backbone)
             base_model = load_model(model_path)
@@ -465,7 +467,6 @@ class ClassifierCNN:
                                 weights=weights)
             self.create_fclayer(base_model)
 
-        self.load_dataset_generators()
         self.compile_model()
         start_time = time.time()
         self.fit_model('warmup')
