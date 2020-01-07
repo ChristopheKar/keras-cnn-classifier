@@ -90,22 +90,45 @@ class ClassifierCNN:
         if not os.path.exists(self.metrics_path):
             os.makedirs(self.metrics_path)
 
-    def setup_dataset(num_classes, dataset_path, train_path='train', valid_path='valid', mode='directory'):
+
+    def setup_dataset(num_classes, dataset_path, train_path='train', valid_path='valid', mode='directory', use_default_root=True, x_col=None, y_col=None):
+
+        flag_path = 0
 
         if mode == 'directory':
+            # Set dataset paths
+            if use_default_root is True:
+                self.dataset_root = (self.data_root_path, dataset_path)
+                self.train_path = os.path.join(self.dataset_root, train_path)
+                self.valid_path = os.path.join(self.dataset_root, valid_path)
+            else:
+                self.train_path = train_path
+                self.valid_path = valid_path
             # Check for validity of dataset paths
-            flag_path = 0
-            flag_path += os.path.isdir(dataset_path)
-            flag_path += os.path.isdir(os.path.join(dataset_path, train_path))
-            flag_path += os.path.isdir(os.path.join(dataset_path, valid_path))
-            assert (flag_path == 0), "Dataset path error"
-            self.dataset_root = dataset_path
-            self.train_path = os.path.join(dataset_path, train_path)
-            self.valid_path = os.path.join(dataset_path, valid_path)
-            self.set_num_classes(num_classes)
+            flag_path += os.path.isdir(self.train_path)
+            flag_path += os.path.isdir(self.valid_path)
+
         elif mode == 'dataframe':
-            # TODO: add dataframe dataset setup
-            pass
+            # Set dataset paths
+            if use_default_root is True:
+                self.dataset_root = (self.data_root_path, dataset_path)
+                self.train_path = os.path.join(self.dataset_root, train_path)
+                self.valid_path = os.path.join(self.dataset_root, valid_path)
+            else:
+                self.dataset_root = dataset_path
+                self.train_path = train_path
+                self.valid_path = valid_path
+            # Set datframe columns
+            self.xcol_name = x_col
+            self.ycol_name = y_col
+            # Check for validity of dataset paths
+            flag_path += os.path.isfile(self.train_path)
+            flag_path += os.path.isfile(self.valid_path)
+
+        assert (flag_path == 0), "Dataset path error"
+
+        self.set_num_classes(num_classes)
+
 
     def set_num_classes(self, num_classes):
 
@@ -145,14 +168,35 @@ class ClassifierCNN:
         if self.dataset_mode == 'directory':
             # Training generator
             self.train_generator = train_datagen.flow_from_directory(
-                self.train_dir,
+                self.train_path,
                 target_size = (self.height, self.width),
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
                 shuffle = True)
             # Validation generator
             self.validation_generator = validation_datagen.flow_from_directory(
-                self.val_dir,
+                self.valid_path,
+                target_size = (self.height, self.width),
+                batch_size = self.batch_size,
+                class_mode = self.class_mode,
+                shuffle = True)
+        elif self.dataset_mode == 'dataframe':
+            # Training generator
+            self.train_generator = train_datagen.flow_from_dataframe(
+                dataframe = self.train_path,
+                directory = self.dataset_root,
+                x_col = self.xcol_name,
+                y_col = self.ycol_name,
+                target_size = (self.height, self.width),
+                batch_size = self.batch_size,
+                class_mode = self.class_mode,
+                shuffle = True)
+            # Validation generator
+            self.validation_generator = validation_datagen.flow_from_dataframe(
+                dataframe = self.valid_path,
+                directory = self.dataset_root,
+                x_col = self.xcol_name,
+                y_col = self.ycol_name,
                 target_size = (self.height, self.width),
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
@@ -161,9 +205,6 @@ class ClassifierCNN:
             self.num_train_samples = self.train_generator.samples
             self.num_valid_samples = self.validation_generator.samples
 
-        elif self.dataset_mode == 'dataframe':
-            # TODO: add flow_from_dataframe
-            pass
 
         if self.class_weights == 'balanced':
             self.class_weights = class_weight.compute_class_weight(
