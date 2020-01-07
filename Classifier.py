@@ -74,6 +74,8 @@ class ClassifierCNN:
         self.from_scratch = False
         self.augment_data = True
         self.class_weights = 'balanced'
+        self.warmup_epochs = 5
+        self.training_epochs = 25
 
         # Set default callbacks
         self.earlystopping = False
@@ -316,20 +318,19 @@ class ClassifierCNN:
                            optimizer=adam,
                            metrics=['accuracy'])
 
-    def fit_model(self, steps='init'):
+    def fit_model(self, steps='warmup'):
+
+                self.earlystopping = False
+                self.earlystop_patience = 10
+                self.log_to_tensorboard = False
+                self.log_to_csv = True
+                self.use_lr_decay = False
+                self.use_lr_plateau = True
 
         callbacks = []
+        lr_callback = []
 
-        # reduce learning rate on plateau
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss',
-                                      factor=0.1,
-                                      patience=3,
-                                      min_delta=0.0001,
-                                      verbose=1,
-                                      min_lr=0.0000001)
-        callbacks.append(reduce_lr)
-
-        # save best models
+        # Save best models
         checkpoint = ModelCheckpoint(self.model_path,
                                      monitor='val_acc',
                                      verbose=1,
@@ -339,48 +340,68 @@ class ClassifierCNN:
                                      period=1)
         callbacks.append(checkpoint)
 
-        # log to tensorboard
-        tensorboard = TensorBoard(log_dir=self.logs_path,
-                                  histogram_freq=0,
-                                  write_graph=True,
-                                  write_images=False)
-        callbacks.append(tensorboard)
+        # Reduce learning rate on plateau
+        if self.use_lr_plateau is True:
+            reduce_lr = ReduceLROnPlateau(monitor='val_loss',
+                                          factor=0.1,
+                                          patience=3,
+                                          min_delta=0.0001,
+                                          verbose=1,
+                                          min_lr=0.0000001)
+            callbacks.append(reduce_lr)
+            lr_callback.append(reduce_lr)
 
-        # set up learning rate schedule
-        lrate = LearningRateScheduler(self.step_decay)
+        # Set up learning rate schedule
+        elif self.use_lr_decay is True:
+            schedule_lr = LearningRateScheduler(self.step_decay)
+            callbacks.append(schedule_lr)
+            lr_callback.append(schedule_lr)
+
 
         # Early Stopping on Plateau
-        earlystop = EarlyStopping(monitor='val_acc',
-                                  mode='max',
-                                  verbose=1,
-                                  patience=self.earlystop_patience)
-        callbacks.append(earlystop)
+        if self.earlystopping is True:
+            earlystop = EarlyStopping(monitor='val_acc',
+                                      mode='max',
+                                      verbose=1,
+                                      patience=self.earlystop_patience)
+            callbacks.append(earlystop)
 
-        csv_logger = CSVLogger(os.path.join(self.metrics_path, 'training.log'),
-                               separator=',',
-                               append=False)
+        # Log to tensorboard
+        if self.log_to_tensorboard is True:
+            tensorboard = TensorBoard(log_dir=self.logs_path,
+                                      histogram_freq=0,
+                                      write_graph=True,
+                                      write_images=False)
+            callbacks.append(tensorboard)
+
+        # Log to CSV
+        if self.log_to_csv is True:
+            csv_logger = CSVLogger(
+                            os.path.join(self.metrics_path, 'training.log'),
+                            separator=',',
+                            append=False)
+            callbacks.append(csv_logger)
 
         # fit model
         if steps == 'warmup':
             self.history_ = self.model.fit_generator(
-                        self.train_generator,
-                        steps_per_epoch=self.num_train_samples//self.batch_size,
-                        epochs=5,
-                        validation_data=self.validation_generator,
-                        validation_steps=self.num_valid_samples//self.batch_size,
-                        callbacks=[checkpoint, reduce_lr],
-                        class_weight=self.class_weights)
+                    self.train_generator,
+                    steps_per_epoch = self.num_train_samples//self.batch_size,
+                    epochs = self.warmup_epochs,
+                    validation_data = self.validation_generator,
+                    validation_steps = self.num_valid_samples//self.batch_size,
+                    callbacks = lr_callback,
+                    class_weight = self.class_weights)
 
         elif steps == 'finetune':
-
             self.history = self.model.fit_generator(
                     self.train_generator,
-                    steps_per_epoch=self.num_train_samples//self.batch_size,
-                    epochs=25,
-                    validation_data=self.validation_generator,
-                    validation_steps=self.num_valid_samples//self.batch_size,
-                    callbacks=[checkpoint, reduce_lr, es, csv_logger],
-                    class_weight=self.class_weights)
+                    steps_per_epoch = self.num_train_samples//self.batch_size,
+                    epochs = self.training_epochs,
+                    validation_data = self.validation_generator,
+                    validation_steps = self.num_valid_samples//self.batch_size,
+                    callbacks = callbacks,
+                    class_weight = self.class_weights)
 
     def train(self):
 
