@@ -183,6 +183,10 @@ class ClassifierCNN:
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
                 shuffle = True)
+            # Set number of classes
+            num_classes_train = self.train_generator.num_classes
+            num_classes_valid = self.validation_generator.num_classes
+
         elif self.dataset_mode == 'dataframe':
             # Training generator
             self.train_generator = train_datagen.flow_from_dataframe(
@@ -204,13 +208,19 @@ class ClassifierCNN:
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
                 shuffle = True)
-            # Set number of samples
-            self.num_train_samples = self.train_generator.samples
-            self.num_valid_samples = self.validation_generator.samples
+            # Set number of classes
+            num_classes_train = self.train_generator.num_classes
+            num_classes_valid = self.validation_generator.num_classes
 
+        self.num_classes = num_classes_train
+        print(self.num_classes)
+
+        # Set number of samples
+        self.num_train_samples = self.train_generator.samples
+        self.num_valid_samples = self.validation_generator.samples
+        # Check if number of training classes == number of validation classes
         assert len(self.validation_generator.class_indices) == len(self.train_generator.class_indices), "number of classes in training and validation sets do not match"
 
-        self.num_classes = len(self.train_generator.class_indices)
 
         if self.class_weights == 'balanced':
             self.class_weights = class_weight.compute_class_weight(
