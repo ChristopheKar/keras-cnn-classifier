@@ -1,15 +1,15 @@
-# import standard libraries
+# Import standard libraries
 import os
 import math
 import time
 from shutil import copyfile
 
-# import main library
+# Import main library
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-# import scikit-learn metrics
+# Import scikit-learn metrics
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -18,22 +18,22 @@ from sklearn.metrics import cohen_kappa_score
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
 
-# import keras utilities
+# Import keras utilities
 from sklearn.utils import class_weight
 from tensorflow.keras import backend as K
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import load_model
-from tensorflow.keras_preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import TensorBoard, CSVLogger
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.keras.callbacks import LearningRateScheduler, ReduceLROnPlateau
 
-# import keras model layers
+# Import keras model layers
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten
 from tensorflow.keras.layers import GlobalAveragePooling2D, BatchNormalization
 
-# import keras CNN models
+# Import keras CNN models
 from tensorflow.keras.applications.inception_v3 import InceptionV3
 from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
 from tensorflow.keras.applications.resnet50 import ResNet50
@@ -44,48 +44,132 @@ from tensorflow.keras.applications.densenet import DenseNet121, DenseNet169
 
 class ClassifierCNN:
 
-    def __init__(self, backbone, dataset, model_name):
+    def __init__(self, backbone, experiment_name):
 
+        # Clear session variables
         if K.backend() == 'tensorflow':
             K.clear_session()
 
-        self.home = os.environ['HOME']
-
-        self.global_root = os.path.join(self.home, 'wrist/classification')
-        self.models_root = os.path.join(self.global_root, 'models')
-        self.logs_root = os.path.join(self.global_root, 'logs')
-        self.datasets_root = os.path.join(self.home, 'wrist/datasets')
-
+        # Set up root paths
+        self.models_root_path = 'models'
+        self.data_root_path = 'datasets'
+        self.logs_root_path = 'logs'
+        # Set up model path
         self.model_name = model_name + '.h5'
+        self.model_path = os.path.join(self.models_root_path, self.model_name)
+        # Set up log path
         self.logs_name = model_name
-
-        self.model_path = os.path.join(self.models_root, self.model_name)
-        self.logs_path = os.path.join(self.logs_root, self.logs_name)
-
+        self.logs_path = os.path.join(self.logs_root_path, self.logs_name)
+        # Set up model backbone
         self.backbone = backbone
-        self.define_dataset(dataset)
 
-        if self.classes == 1:
-            self.class_mode = 'binary'
-            self.activation = 'sigmoid'
-        elif self.classes > 1:
-            self.class_mode = 'categorical'
-            self.activation = 'softmax'
-
-
+        # Set image and data variables
         self.height = 224
         self.width = 224
         self.batch_size = 8
-        self.loss = 'default'
-        self.lrate=0.0001
-        self.layers = 19
-        self.scratch = False
-        self.total_time = 0
-        self.es_patience = 10
 
+        # Set default training variables
+        self.init_lrate=0.0001
+        self.finetuning_layers = 20
+        self.from_scratch = False
+        self.augment_data = True
+        self.class_weights = 'balanced'
+
+        # Set default callbacks
+        self.earlystopping = False
+        self.earlystop_patience = 10
+        self.log_to_tensorboard = False
+        self.log_to_csv = True
+        self.use_lr_decay = False
+        self.use_lr_plateau = True
+
+        # Create metrics log directory if not available
         self.metrics_path = os.path.join(self.logs_path, 'metrics')
         if not os.path.exists(self.metrics_path):
             os.makedirs(self.metrics_path)
+
+    def setup_dataset(num_classes, dataset_path, train_path='train', valid_path='valid', mode='directory'):
+
+        if mode == 'directory':
+            # Check for validity of dataset paths
+            flag_path = 0
+            flag_path += os.path.isdir(dataset_path)
+            flag_path += os.path.isdir(os.path.join(dataset_path, train_path))
+            flag_path += os.path.isdir(os.path.join(dataset_path, valid_path))
+            assert (flag_path == 0), "Dataset path error"
+            self.dataset_root = dataset_path
+            self.train_path = os.path.join(dataset_path, train_path)
+            self.valid_path = os.path.join(dataset_path, valid_path)
+            self.set_num_classes(num_classes)
+        elif mode == 'dataframe':
+            # TODO: add dataframe dataset setup
+            pass
+
+    def set_num_classes(self, num_classes):
+
+        # Set class variable num_classes
+        self.num_classes = num_classes
+
+        # Set training loss and activation functions
+        if self.num_classes == 1:                   # Binary classification
+            self.class_mode = 'binary'
+            self.activation = 'sigmoid'
+            self.loss = 'binary_crossentropy'
+        elif self.num_classes > 1:                  # Multi-class classification
+            self.class_mode = 'categorical'
+            self.activation = 'softmax'
+            self.loss = 'categorical_crossentropy'
+
+    def load_dataset_generators(self):
+
+        # Create training generator and augment training data
+        if self.agument_data is True:
+            train_datagen = ImageDataGenerator(
+                rescale=1./255,
+                rotation_range=90,
+                width_shift_range=0.4,
+                height_shift_range=0.4,
+                shear_range=0.4,
+                zoom_range=0.4,
+                horizontal_flip=True,
+                fill_mode='nearest')
+        else:
+            train_datagen = ImageDataGenerator(rescale=1./255)
+
+        # Don't augment data in the validation generator
+        validation_datagen = ImageDataGenerator(
+            rescale=1./255)
+
+        if self.dataset_mode == 'directory':
+            # Training generator
+            self.train_generator = train_datagen.flow_from_directory(
+                self.train_dir,
+                target_size = (self.height, self.width),
+                batch_size = self.batch_size,
+                class_mode = self.class_mode,
+                shuffle = True)
+            # Validation generator
+            self.validation_generator = validation_datagen.flow_from_directory(
+                self.val_dir,
+                target_size = (self.height, self.width),
+                batch_size = self.batch_size,
+                class_mode = self.class_mode,
+                shuffle = True)
+            # Set number of samples
+            self.num_train_samples = self.train_generator.samples
+            self.num_valid_samples = self.validation_generator.samples
+
+        elif self.dataset_mode == 'dataframe':
+            # TODO: add flow_from_dataframe
+            pass
+
+        if self.class_weights == 'balanced':
+            self.class_weights = class_weight.compute_class_weight(
+                                        'balanced',
+                                        np.unique(self.train_generator.classes),
+                                        self.train_generator.classes)
+        else:
+            self.class_weights = None
 
     def draw_plots(self):
 
@@ -146,9 +230,6 @@ class ClassifierCNN:
         # f1: 2 tp / (2 tp + fp + fn)
         f1 = f1_score(classes, pred_classes)
         metrics = metrics + 'F1 score: {:f}\n'.format(f1)
-        # kappa
-        kappa = cohen_kappa_score(classes, pred_classes)
-        metrics = metrics + 'Cohens Kappa: {:f}\n'.format(kappa)
         # ROC AUC
         auc = roc_auc_score(classes, pred_prob)
         metrics = metrics + 'ROC AUC: {:f}\n'.format(auc)
@@ -187,52 +268,6 @@ class ClassifierCNN:
 
         self.draw_plots()
 
-    def define_dataset(self, dataset):
-
-        if dataset == 'Pets':
-            dataset_base = os.path.join(self.datasets_root, 'aub_disp')
-            self.num_train = 3419
-            self.num_val = 380
-            self.classes = 1
-
-        self.train_dir = os.path.join(dataset_base, 'train')
-        self.val_dir = os.path.join(dataset_base, 'valid')
-        self.data_classes = [f for f in os.listdir(self.train_dir) if os.path.isdir(f)]
-
-    def load_dataset_generators(self):
-
-        train_datagen = ImageDataGenerator(
-            rescale=1./255,
-            rotation_range=90,
-            width_shift_range=0.4,
-            height_shift_range=0.4,
-            shear_range=0.4,
-            zoom_range=0.4,
-            horizontal_flip=True,
-            fill_mode='nearest')
-
-        validation_datagen = ImageDataGenerator(
-            rescale=1./255)
-
-        self.train_generator = train_datagen.flow_from_directory(
-            self.train_dir,
-            target_size = (self.height, self.width),
-            batch_size = self.batch_size,
-            class_mode = self.class_mode,
-            classes = self.data_classes)
-
-        self.validation_generator = validation_datagen.flow_from_directory(
-            self.val_dir,
-            target_size = (self.height, self.width),
-            batch_size = self.batch_size,
-            class_mode = self.class_mode,
-            classes = self.data_classes)
-
-        self.class_weights = class_weight.compute_class_weight(
-                                        'balanced',
-                                        np.unique(self.train_generator.classes),
-                                        self.train_generator.classes)
-
     def create_fclayer(self, conv_base, pre=False):
 
         conv_base.trainable = False
@@ -247,14 +282,15 @@ class ClassifierCNN:
         self.model.add(Dense(512, activation='relu'))
         self.model.add(Dense(256, activation='relu'))
         self.model.add(Dense(128, activation='relu'))
-        self.model.add(Dense(self.classes, activation=self.activation))
+        self.model.add(Dense(self.num_classes, activation=self.activation))
 
     def fine_tune(self, conv_base):
 
         conv_base.trainable = True
 
-        for layer in conv_base.layers[:-self.layers]:
-            layer.trainable = False
+        if self.from_scratch is False:
+            for layer in conv_base.layers[:-self.finetuning_layers]:
+                layer.trainable = False
 
     def step_decay(self, epoch):
 
@@ -262,34 +298,27 @@ class ClassifierCNN:
         initial_lrate = 0.001
         drop = 0.5
         epochs_drop = 10.0
-        lrate = initial_lrate * math.pow(drop, math.floor((1+epoch)/epochs_drop))
+        lrate = initial_lrate*math.pow(drop, math.floor((1+epoch)/epochs_drop))
         if lrate < min_lrate:
             lrate = min_lrate
         return lrate
 
     def compile_model(self):
 
-        adam = Adam(lr=self.lrate,
+        adam = Adam(lr=self.init_lrate,
                     beta_1=0.9,
                     beta_2=0.999,
                     epsilon=None,
                     decay=0.0,
                     amsgrad=True)
 
-        if self.loss == 'default' and self.classes == 1:
-            loss_f = 'binary_crossentropy'
-        if self.loss == 'default' and self.classes > 1:
-            loss_f = 'categorical_crossentropy'
-        if self.loss == 'focal' and self.classes == 1:
-            loss_f = binary_focal_loss(alpha=.25, gamma=2)
-        if self.loss == 'focal' and self.classes > 1:
-            loss_f = categorical_focal_loss(alpha=.25, gamma=2)
-
-        self.model.compile(loss=loss_f,
+        self.model.compile(loss=self.loss,
                            optimizer=adam,
                            metrics=['accuracy'])
 
     def fit_model(self, steps='init'):
+
+        callbacks = []
 
         # reduce learning rate on plateau
         reduce_lr = ReduceLROnPlateau(monitor='val_loss',
@@ -298,6 +327,7 @@ class ClassifierCNN:
                                       min_delta=0.0001,
                                       verbose=1,
                                       min_lr=0.0000001)
+        callbacks.append(reduce_lr)
 
         # save best models
         checkpoint = ModelCheckpoint(self.model_path,
@@ -307,46 +337,50 @@ class ClassifierCNN:
                                      save_weights_only=False,
                                      mode='auto',
                                      period=1)
+        callbacks.append(checkpoint)
+
         # log to tensorboard
         tensorboard = TensorBoard(log_dir=self.logs_path,
                                   histogram_freq=0,
                                   write_graph=True,
                                   write_images=False)
+        callbacks.append(tensorboard)
 
         # set up learning rate schedule
         lrate = LearningRateScheduler(self.step_decay)
 
         # Early Stopping on Plateau
-        es = EarlyStopping(monitor='val_acc',
-                           mode='max',
-                           verbose=1,
-                           patience=self.es_patience)
+        earlystop = EarlyStopping(monitor='val_acc',
+                                  mode='max',
+                                  verbose=1,
+                                  patience=self.earlystop_patience)
+        callbacks.append(earlystop)
 
         csv_logger = CSVLogger(os.path.join(self.metrics_path, 'training.log'),
                                separator=',',
                                append=False)
 
         # fit model
-        if steps == 'init':
-            self.history = self.model.fit_generator(
-                                self.train_generator,
-                                steps_per_epoch=150,
-                                epochs=25,
-                                validation_data=self.validation_generator,
-                                validation_steps=self.num_val//self.batch_size,
-                                callbacks=[checkpoint, reduce_lr],
-                                class_weight=self.class_weights)
+        if steps == 'warmup':
+            self.history_ = self.model.fit_generator(
+                        self.train_generator,
+                        steps_per_epoch=self.num_train_samples//self.batch_size,
+                        epochs=5,
+                        validation_data=self.validation_generator,
+                        validation_steps=self.num_valid_samples//self.batch_size,
+                        callbacks=[checkpoint, reduce_lr],
+                        class_weight=self.class_weights)
 
-        elif steps == 'fine':
+        elif steps == 'finetune':
 
             self.history = self.model.fit_generator(
-                                self.train_generator,
-                                steps_per_epoch=150,
-                                epochs=100,
-                                validation_data=self.validation_generator,
-                                validation_steps=self.num_val//self.batch_size,
-                                callbacks=[checkpoint, reduce_lr, es, csv_logger],
-                                class_weight=self.class_weights)
+                    self.train_generator,
+                    steps_per_epoch=self.num_train_samples//self.batch_size,
+                    epochs=25,
+                    validation_data=self.validation_generator,
+                    validation_steps=self.num_valid_samples//self.batch_size,
+                    callbacks=[checkpoint, reduce_lr, es, csv_logger],
+                    class_weight=self.class_weights)
 
     def train(self):
 
@@ -359,26 +393,24 @@ class ClassifierCNN:
             base_model.summary()
             self.create_fclayer(base_model, True)
         else:
-            if self.scratch is True:
-                w = None
+            if self.from_scratch is True:
+                weights = None
             else:
-                w = 'imagenet'
+                weights = 'imagenet'
 
-            base_model = self.backbone(include_top=False,
-                                       input_shape = (self.height,self.width,3),
-                                       weights=w)
+            base_model = self.backbone(
+                                include_top=False,
+                                input_shape = (self.height, self.width, 3),
+                                weights=weights)
             self.create_fclayer(base_model)
 
         self.load_dataset_generators()
         self.compile_model()
         start_time = time.time()
-        self.fit_model('init')
-        checkpoint_1 = time.time()
+        self.fit_model('warmup')
         self.fine_tune(base_model)
         self.compile_model()
-        checkpoint_2 = time.time()
-        self.fit_model('fine')
+        self.fit_model('finetune')
         end_time = time.time()
-        total_time = (checkpoint_1 - start_time) + (end_time - checkpoint_2)
-        self.total_time = total_time / 3600
+        self.total_time = (time.time() - start_time) / 3600
         self.evaluate()

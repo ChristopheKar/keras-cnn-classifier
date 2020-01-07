@@ -22,9 +22,9 @@ cls.train()
 ```
 The code above imports the DenseNet169 model and the ClassifierCNN class, and then creates a class instance with the desired model to train, a dataset name, and an experiment name. You can also change many of the class variables to suit your need.
 
-The `layers` variable is the number of layers to fine-tune, into the model. The default is set to `224`. For example, at the default value, all model layers will be frozen during training except for the last 224 layers.
+The `finetuning_layers` variable is the number of layers to fine-tune, into the model. The default is set to `20`. For example, at the default value, all model layers will be frozen during training except for the last 20 layers.
 
-Another example, if you want to train the network from scratch (no pretraining), set `finetuning_layers = 0` and `from_scratch = True`, as shown above.
+Another example, if you want to train the network from scratch (no pretraining), set `from_scratch = True`, as shown above.
 
 The `run_experiments.py` file provides the same example, and you can modify the file to run your own series of experiments.
 
