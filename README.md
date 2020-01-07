@@ -19,10 +19,6 @@ cls = ClassifierCNN(DenseNet169, 'Pets', 'd169_pets_finetuned')
 cls.finetuning_layers = 224
 # Run Training
 cls.train()
-cls = ClassifierCNN(DenseNet169, 'Pets', 'd169_pets_scratch')
-cls.finetuning_layers = 0
-cls.from_scratch = True
-cls.train()
 ```
 The code above imports the DenseNet169 model and the ClassifierCNN class, and then creates a class instance with the desired model to train, a dataset name, and an experiment name. You can also change many of the class variables to suit your need.
 
