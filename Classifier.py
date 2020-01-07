@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Import standard libraries
 import os
 import math
@@ -208,6 +210,7 @@ class ClassifierCNN:
 
         assert len(self.validation_generator.class_indices) == len(self.train_generator.class_indices), "number of classes in training and validation sets do not match"
 
+        self.num_classes = len(self.train_generator.class_indices)
 
         if self.class_weights == 'balanced':
             self.class_weights = class_weight.compute_class_weight(
