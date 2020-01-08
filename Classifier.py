@@ -392,11 +392,11 @@ class ClassifierCNN:
         # Reduce learning rate on plateau
         if self.use_lr_plateau is True:
             reduce_lr = ReduceLROnPlateau(monitor='val_loss',
-                                          factor=0.1,
-                                          patience=3,
+                                          factor=0.3,
+                                          patience=5,
                                           min_delta=0.0001,
                                           verbose=1,
-                                          min_lr=0.0000001)
+                                          min_lr=0.00000001)
             callbacks.append(reduce_lr)
             lr_callback.append(reduce_lr)
 
