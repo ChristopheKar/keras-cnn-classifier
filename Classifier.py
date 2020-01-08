@@ -70,6 +70,7 @@ class ClassifierCNN:
         self.height = 224
         self.width = 224
         self.batch_size = 8
+        self.shuffle_generator = True
 
         # Set default training variables
         self.init_lrate=0.0001
@@ -197,7 +198,7 @@ class ClassifierCNN:
                 target_size = (self.height, self.width),
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
-                shuffle = True)
+                shuffle = self.shuffle_generator)
             # Validation generator
             self.validation_generator = validation_datagen.flow_from_dataframe(
                 dataframe = pd.read_csv(self.valid_path).astype('str'),
@@ -207,7 +208,7 @@ class ClassifierCNN:
                 target_size = (self.height, self.width),
                 batch_size = self.batch_size,
                 class_mode = self.class_mode,
-                shuffle = True)
+                shuffle = self.shuffle_generator)
             # Set number of classes
             num_classes_train = len(self.train_generator.class_indices)
             num_classes_valid = len(self.validation_generator.class_indices)
@@ -255,21 +256,17 @@ class ClassifierCNN:
 
     def evaluate(self):
 
-        img_datagen = ImageDataGenerator(rescale=1./255)
+        self.batch_size = 1
+        self.shuffle_generator = False
 
-        img_generator = img_datagen.flow_from_directory(
-            self.val_dir,
-            target_size = (self.height, self.width),
-            batch_size = 1,
-            shuffle = False,
-            class_mode = self.class_mode)
+        self.load_dataset_generators()
 
-        img_generator.reset()
-        classes = img_generator.classes[img_generator.index_array][0]
+        self.validation_generator.reset()
+        classes = self.validation_generator.classes[img_generator.index_array][0]
         nb_samples = len(classes)
 
-        img_generator.reset()
-        Y_pred = self.model.predict_generator(img_generator, steps=nb_samples)
+        self.validation_generator.reset()
+        Y_pred = self.model.predict_generator(self.validation_generator, steps=nb_samples)
         pred_prob = np.array([a[0] for a in Y_pred])
         pred_classes = pred_prob.round().astype('int32')
         self.pred_classes = pred_classes
