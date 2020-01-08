@@ -333,11 +333,13 @@ class ClassifierCNN:
         else:
             self.model.add(conv_base.layers[0])
         self.model.add(Flatten())
+        self.model.add(Dense(1024, activation='relu'))
         self.model.add(Dense(512, activation='relu'))
         self.model.add(Dropout(0.5))
         self.model.add(Dense(256, activation='relu'))
         self.model.add(Dropout(0.4))
         self.model.add(Dense(128, activation='relu'))
+        self.model.add(Dense(64, activation='relu'))
         self.model.add(Dense(self.num_classes, activation=self.activation))
 
     def fine_tune(self, conv_base):
