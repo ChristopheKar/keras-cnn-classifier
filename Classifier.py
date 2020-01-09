@@ -346,12 +346,12 @@ class ClassifierCNN:
         # self.model.add(Dense(64, activation='relu'))
         self.model.add(Dense(self.num_classes, activation=self.activation))
 
-    def fine_tune(self, conv_base):
+    def fine_tune(self):
 
-        conv_base.trainable = True
+        self.base_model.trainable = True
 
         if self.from_scratch is False:
-            for layer in conv_base.layers[:-self.finetuning_layers]:
+            for layer in self.base_model.layers[:-self.finetuning_layers]:
                 layer.trainable = False
 
     def step_decay(self, epoch):
@@ -460,22 +460,22 @@ class ClassifierCNN:
         # Creating model
         if isinstance(self.backbone, str):
             model_path = os.path.join(self.models_root, self.backbone)
-            base_model = load_model(model_path)
+            self.base_model = load_model(model_path)
             for i in range(6):
-                base_model._layers.pop()
-            base_model.summary()
-            self.create_fclayer(base_model, True)
+                self.base_model._layers.pop()
+            self.base_model.summary()
+            self.create_fclayer(self.base_model, True)
         else:
             if self.from_scratch is True:
                 weights = None
             else:
                 weights = 'imagenet'
 
-            base_model = self.backbone(
-                                include_top=False,
-                                input_shape = (self.height, self.width, 3),
-                                weights=weights)
-            self.create_fclayer(base_model)
+            self.base_model = self.backbone(
+                                    include_top=False,
+                                    input_shape = (self.height, self.width, 3),
+                                    weights=weights)
+            self.create_fclayer(self.base_model)
 
         self.compile_model()
 
@@ -486,7 +486,7 @@ class ClassifierCNN:
         print(self.model.summary())
         start_time = time.time()
         self.fit_model('warmup')
-        self.fine_tune(base_model)
+        self.fine_tune()
         self.compile_model()
         self.fit_model('finetune')
         end_time = time.time()
