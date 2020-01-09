@@ -385,7 +385,7 @@ class ClassifierCNN:
 
         # Save best models
         checkpoint = ModelCheckpoint(self.model_path,
-                                     monitor='val_acc',
+                                     monitor='val_accuracy',
                                      verbose=1,
                                      save_best_only=True,
                                      save_weights_only=False,
