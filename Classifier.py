@@ -339,11 +339,11 @@ class ClassifierCNN:
                              kernel_regularizer=regularizers.l2(0.01),
                              activity_regularizer=regularizers.l1(0.01)))
         self.model.add(Dense(512, activation='relu'))
-        self.model.add(Dropout(0.5))
-        self.model.add(Dense(256, activation='relu'))
-        self.model.add(Dropout(0.4))
+        # self.model.add(Dropout(0.5))
+        # self.model.add(Dense(256, activation='relu'))
+        self.model.add(Dropout(rate=0.2))
         self.model.add(Dense(128, activation='relu'))
-        self.model.add(Dense(64, activation='relu'))
+        # self.model.add(Dense(64, activation='relu'))
         self.model.add(Dense(self.num_classes, activation=self.activation))
 
     def fine_tune(self, conv_base):
@@ -456,10 +456,7 @@ class ClassifierCNN:
                     callbacks = callbacks,
                     class_weight = self.class_weights)
 
-    def train(self):
-
-        self.load_dataset_generators()
-
+    def build_model(self):
         # Creating model
         if isinstance(self.backbone, str):
             model_path = os.path.join(self.models_root, self.backbone)
@@ -481,6 +478,12 @@ class ClassifierCNN:
             self.create_fclayer(base_model)
 
         self.compile_model()
+
+    def train(self):
+
+        self.load_dataset_generators()
+        self.build_model()
+        print(self.model.summary())
         start_time = time.time()
         self.fit_model('warmup')
         self.fine_tune(base_model)
