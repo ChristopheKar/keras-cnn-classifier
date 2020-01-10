@@ -326,25 +326,39 @@ class ClassifierCNN:
 
     def create_fclayer(self, conv_base, pre=False):
 
-        conv_base.trainable = False
+        backbone = self.backbone
+        x = backbone.output
+        x = Flatten()(x)
+        x = Dropout(0.5)(x)
+        x = Dense(1024, activation='relu')(x)
+        x = Dense(512, activation='relu')(x)
+        x = Dropout(0.2)(x)
+        x = Dense(256, activation='relu')(x)
+        x = Dense(128, activation='relu')(x)
+        x = Dropout(0.1)(x)
+        x = Dense(64, activation='relu')(x)
+        output = Dense(self.num_classes, activation=self.activation)(x)
+        self.model = Model(inputs=backbone.input, outputs=output)
 
-        self.model = Sequential()
-        if pre is False:
-            self.model.add(conv_base)
-        else:
-            self.model.add(conv_base.layers[0])
-        self.model.add(Flatten())
-        self.model.add(Dense(1024,
-                             activation='relu',
-                             kernel_regularizer=regularizers.l2(0.01),
-                             activity_regularizer=regularizers.l1(0.01)))
-        self.model.add(Dense(512, activation='relu'))
-        # self.model.add(Dropout(0.5))
-        self.model.add(Dense(256, activation='relu'))
-        self.model.add(Dropout(rate=0.2))
-        self.model.add(Dense(128, activation='relu'))
-        self.model.add(Dense(64, activation='relu'))
-        self.model.add(Dense(self.num_classes, activation=self.activation))
+        # conv_base.trainable = False
+        #
+        # self.model = Sequential()
+        # if pre is False:
+        #     self.model.add(conv_base)
+        # else:
+        #     self.model.add(conv_base.layers[0])
+        # self.model.add(Flatten())
+        # self.model.add(Dense(1024,
+        #                      activation='relu',
+        #                      kernel_regularizer=regularizers.l2(0.01),
+        #                      activity_regularizer=regularizers.l1(0.01)))
+        # self.model.add(Dense(512, activation='relu'))
+        # # self.model.add(Dropout(0.5))
+        # self.model.add(Dense(256, activation='relu'))
+        # self.model.add(Dropout(rate=0.2))
+        # self.model.add(Dense(128, activation='relu'))
+        # self.model.add(Dense(64, activation='relu'))
+        # self.model.add(Dense(self.num_classes, activation=self.activation))
 
     def fine_tune(self):
 
