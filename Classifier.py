@@ -49,7 +49,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.utils import class_weight
 from keras import backend as K
 from keras.models import load_model
-from keras.preprocessing.image import ImageDataGenerator
+from keras_preprocessing.image import ImageDataGenerator
 from keras.callbacks import TensorBoard, CSVLogger
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.callbacks import LearningRateScheduler, ReduceLROnPlateau
