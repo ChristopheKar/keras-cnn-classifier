@@ -394,7 +394,6 @@ class ClassifierCNN:
         adam = Adam(lr=self.init_lrate,
                     beta_1=0.9,
                     beta_2=0.999,
-                    epsilon=None,
                     decay=0.0,
                     amsgrad=True)
 
