@@ -21,53 +21,29 @@ from sklearn.metrics import cohen_kappa_score
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
 
-# # Import keras utilities
-# from sklearn.utils import class_weight
-# from tensorflow.keras import backend as K
-# from tensorflow.keras.models import load_model
-# from tensorflow.keras.preprocessing.image import ImageDataGenerator
-# from tensorflow.keras.callbacks import TensorBoard, CSVLogger
-# from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-# from tensorflow.keras.callbacks import LearningRateScheduler, ReduceLROnPlateau
-#
-# # Import keras model layers
-# from tensorflow.keras import regularizers
-# from tensorflow.keras.optimizers import Adam
-# from tensorflow.keras.models import Model, Sequential
-# from tensorflow.keras.layers import Dense, Dropout, Flatten
-# from tensorflow.keras.layers import GlobalAveragePooling2D, BatchNormalization
-#
-# # Import keras CNN models
-# from tensorflow.keras.applications.inception_v3 import InceptionV3
-# from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
-# from tensorflow.keras.applications.resnet50 import ResNet50
-# from tensorflow.keras.applications.nasnet import NASNetLarge, NASNetMobile
-# from tensorflow.keras.applications.vgg16 import VGG16
-# from tensorflow.keras.applications.densenet import DenseNet121, DenseNet169]
-
 # Import keras utilities
 from sklearn.utils import class_weight
-from keras import backend as K
-from keras.models import load_model
-from keras_preprocessing.image import ImageDataGenerator
-from keras.callbacks import TensorBoard, CSVLogger
-from keras.callbacks import ModelCheckpoint, EarlyStopping
-from keras.callbacks import LearningRateScheduler, ReduceLROnPlateau
+from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+from tensorflow.keras.callbacks import LearningRateScheduler, ReduceLROnPlateau
 
 # Import keras model layers
-from keras import regularizers
-from keras.optimizers import Adam
-from keras.models import Model, Sequential
-from keras.layers import Dense, Dropout, Flatten
-from keras.layers import GlobalAveragePooling2D, BatchNormalization
+from tensorflow.keras import regularizers
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten
+from tensorflow.keras.layers import GlobalAveragePooling2D, BatchNormalization
 
 # Import keras CNN models
-from keras.applications.inception_v3 import InceptionV3
-from keras.applications.inception_resnet_v2 import InceptionResNetV2
-from keras.applications.resnet50 import ResNet50
-from keras.applications.nasnet import NASNetLarge, NASNetMobile
-from keras.applications.vgg16 import VGG16
-from keras.applications.densenet import DenseNet121, DenseNet169
+from tensorflow.keras.applications.inception_v3 import InceptionV3
+from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
+from tensorflow.keras.applications.resnet50 import ResNet50
+from tensorflow.keras.applications.nasnet import NASNetLarge, NASNetMobile
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.applications.densenet import DenseNet121, DenseNet169
 
 
 class ClassifierCNN:
