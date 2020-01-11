@@ -326,7 +326,7 @@ class ClassifierCNN:
 
     def create_fclayer(self, conv_base, pre=False):
 
-        backbone = self.backbone
+        backbone = self.base_model
         x = backbone.output
         x = Flatten()(x)
         x = Dropout(0.5)(x)
